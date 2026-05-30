@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IP 확인 및 저장</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+    <h1>당신의 IP 주소</h1>
+    <p id="ip-display">IP를 불러오는 중입니다...</p>
+    <p id="status-display"></p>
+
+    <script>
+        // 1. Supabase 연동 설정 (자신의 정보로 변경해야 합니다)
+        const SUPABASE_URL = 'YOUR_SUPABASE_URL';
+        const SUPABASE_KEY = 'YOUR_SUPABASE_ANON_KEY';
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        async function getAndSaveIP() {
+            try {
+                // 2. 외부 API(ipify)를 통해 사용자의 IP 가져오기
+                const response = await fetch('https://api.ipify.org?format=json');
+                const data = await response.json();
+                const userIp = data.ip;
+
+                // 화면에 IP 표시
+                document.getElementById('ip-display').innerText = userIp;
+                document.getElementById('status-display').innerText = "IP를 확인했습니다. 저장 중...";
+
+                // 3. Supabase DB에 저장하기 ('ip_logs'라는 테이블에 저장)
+                const { error } = await supabase
+                    .from('ip_logs')
+                    .insert([{ ip_address: userIp }]);
+
+                if (error) {
+                    throw error;
+                }
+
+                document.getElementById('status-display').innerText = "성공적으로 저장되었습니다!";
+            } catch (error) {
+                console.error('에러 발생:', error);
+                document.getElementById('status-display').innerText = "데이터 처리 중 오류가 발생했습니다.";
+            }
+        }
+
+        // 페이지가 로드되면 함수 실행
+        window.onload = getAndSaveIP;
+    </script>
+</body>
+</html>
